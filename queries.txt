@@ -1,0 +1,45 @@
+query {
+  speakers {
+    datalist {
+	   id
+	   first
+	   last
+	   favorite
+	}
+ }
+}
+	
+  
+mutation addSpeaker {
+  addSpeaker(speaker: {
+     first:"Sasha",
+	 last: "Smith",
+	 favorite: false
+  }) {
+     id
+	 first
+	 last
+	 favorite
+  }
+}
+
+mutation toggleSpeaker {
+  toggleSpeakerFavorite(speakerId: 47345) {
+     id
+	 first
+	 last
+	 favorite
+  }
+}
+
+
+mutation {
+  deleteSpeaker(speakerId: 47346) {
+     id
+	 first
+	 last
+	 favorite
+  }
+}  
+
+
