@@ -43,3 +43,55 @@ mutation {
 }  
 
 
+speakersConcat(afterCursor: "MTQ5MTg=", limit: 2) {
+  datalist {
+    id
+    first
+    last
+    favorite
+    cursor
+  }
+  pageInfo {
+    totalItemCount
+    lastCursor
+    hasNextPage
+  }
+}
+
+
+query {
+  sessionsConcat(limit: 3, afterCursor: "") {
+    datalist {
+      id
+      title
+      eventYear
+      cursor
+    }
+    pageInfo {
+      totalItemCount
+      lastCursor
+      hasNextPage
+    }
+  }
+}
+
+
+speakersConcat(afterCursor: "NTQ0Mw==", limit: 3) {
+  datalist {
+    id
+    first
+    last
+    favorite
+    cursor
+    sessions {
+      id
+      title
+      eventYear
+    }
+  }
+  pageInfo {
+    totalItemCount
+    lastCursor
+    hasNextPage
+  }
+}
