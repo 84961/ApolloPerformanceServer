@@ -1,13 +1,23 @@
 const { gql, ApolloServer, UserInputError } = require("apollo-server");
 const axios = require("axios");
+const DataLoader = require("dataloader");
 
 const typeDefs = gql`
+  type Room {
+    id: ID!
+    name: String
+    capacity: Int
+  }
+
   type Speaker {
     id: ID!
     first: String
     last: String
     favorite: Boolean
     cursor: String
+    company: String
+    twitterHandle: String
+    bio: String
     sessions: [Session]
   }
 
@@ -33,6 +43,7 @@ const typeDefs = gql`
     title: String!
     eventYear: String
     cursor: String
+    room: Room
   }
 
   type SessionResults {
@@ -136,31 +147,23 @@ const resolvers = {
     },
   },
 
+  Session: {
+    async room(parent, args, { roomLoader }, info) {
+      const roomId = parent.roomId;
+      return roomLoader.load(roomId);
+
+      // const responseRooms = await axios.get("http://localhost:5000/Rooms");
+      // const roomRec = responseRooms.data.find((room) => {
+      //   return roomId === room.id;
+      // });
+      // return roomRec;
+    },
+  },
+
   Speaker: {
-    async sessions(parent) {
+    async sessions(parent, args, { sessionsLoader }, info) {
       const speakerId = parent.id;
-      const responseSessions = await axios.get(
-        "http://localhost:5000/sessions"
-      );
-      const responseSessionSpeakers = await axios.get(
-        "http://localhost:5000/sessionSpeakers"
-      );
-
-      const sessionIds = responseSessionSpeakers.data
-        .filter((rec) => {
-          return rec.speakerId === speakerId;
-        })
-        .map((rec) => {
-          return rec.sessionId;
-        });
-
-      const sessionsResult = responseSessions.data
-        .filter((rec) => {
-          return sessionIds.includes(rec.id);
-        })
-        .sort((a, b) => b.eventYear.localeCompare(a.eventYear));
-
-      return sessionsResult;
+      return sessionsLoader.load(speakerId);
     },
   },
 
@@ -210,6 +213,63 @@ async function apolloServer() {
   const server = new ApolloServer({
     typeDefs,
     resolvers,
+    context: () => {
+      return {
+        roomLoader: new DataLoader(async (roomIds) => {
+          const responseRooms = await axios.get("http://localhost:5000/rooms");
+
+          const roomMap = {};
+          responseRooms.data.forEach((room) => {
+            roomMap[room.id] = room;
+          });
+
+          return roomIds.map((roomId) => {
+            return roomMap[roomId];
+          });
+        }),
+        sessionsLoader: new DataLoader(async (speakerIds) => {
+          const responseSessions = await axios.get(
+            "http://localhost:5000/sessions"
+          );
+          const responseSessionSpeakers = await axios.get(
+            "http://localhost:5000/sessionSpeakers"
+          );
+
+          const sessionIds = responseSessionSpeakers.data
+            .filter((rec) => {
+              return speakerIds.includes(rec.speakerId);
+            })
+            .map((rec) => {
+              return rec.sessionId;
+            });
+
+          const sessionsResult = responseSessions.data.filter((rec) => {
+            return sessionIds.includes(rec.id);
+          });
+
+          let sessionsForSpeakerMap = {};
+          speakerIds.forEach((speakerId) => {
+            const sessionIdsForSpeaker = responseSessionSpeakers.data
+              .filter((sessionSpeakerRec) => {
+                return sessionSpeakerRec.speakerId === speakerId;
+              })
+              .map((sessionSpeakerRec) => {
+                return sessionSpeakerRec.sessionId;
+              });
+
+            const sessionsForSpeaker = sessionsResult.filter((session) => {
+              return sessionIdsForSpeaker.includes(session.id);
+            });
+
+            sessionsForSpeakerMap[speakerId] = sessionsForSpeaker;
+          });
+
+          return speakerIds.map((speakerId) => {
+            return sessionsForSpeakerMap[speakerId];
+          });
+        }),
+      };
+    },
   });
 
   const PORT = process.env.PORT || 4000;
